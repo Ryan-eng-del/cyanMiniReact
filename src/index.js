@@ -1,6 +1,7 @@
 import Component from "./cyanReact/Component";
 import ReactDom from "./cyanReact/react-dom";
 import "./index.css";
+// eslint-disable-next-line
 class ClassComponent extends Component {
   render() {
     return (
@@ -12,7 +13,18 @@ class ClassComponent extends Component {
 }
 
 function FunctionComponent({ name }) {
-  return <div>{name}函数式组件</div>;
+  return (
+    <div className="border">
+      <div>{name}函数式组件</div>
+      <button
+        onClick={() => {
+          console.log("omg"); //sy-log
+        }}
+      >
+        click{name}join成功
+      </button>
+    </div>
+  );
 }
 const jsx = (
   <div className="border">
