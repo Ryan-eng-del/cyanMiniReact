@@ -3,7 +3,8 @@ import {
   updateFunctionComponent,
   updateHostComponent,
 } from "./ReactFiberConceil";
-import { isFn, isString } from "./util";
+import { scheduleCallback, shouldYield } from "./scheduler";
+import { isFn, isString, Palcement, Update, updateNodeChildren } from "./util";
 
 // 根节点: div#app
 let wipRoot = null;
@@ -12,9 +13,11 @@ let wipRoot = null;
 let nextUnitWork = null;
 
 export function scheduleUpdateOnFiber(fiber) {
+  fiber.alternate = { ...fiber };
   wipRoot = fiber;
   wipRoot.sibling = null;
   nextUnitWork = wipRoot;
+  scheduleCallback(workLoop);
 }
 
 // 形成fiber结构的时候是按照 self -> child -> sibling的结构去深度优先遍历的
@@ -22,6 +25,7 @@ export function performUnitOfWork(wip) {
   const { type } = wip;
   // console.log(wip, "wip");
   // self
+  // 更新自己 -> 协调子节点
   if (isString(type)) {
     updateHostComponent(wip);
   } else if (isFn(type)) {
@@ -46,8 +50,8 @@ export function performUnitOfWork(wip) {
   return null;
 }
 
-export function workLoop(IdleDeadline) {
-  while (nextUnitWork && IdleDeadline.timeRemaining() > 0) {
+export function workLoop() {
+  while (nextUnitWork && !shouldYield()) {
     nextUnitWork = performUnitOfWork(nextUnitWork);
   }
   if (!nextUnitWork && wipRoot) {
@@ -68,10 +72,19 @@ function getParentNode(fiber) {
 
 function commitWorker(fiber) {
   if (!fiber) return;
-  const { stateNode } = fiber;
+  const { stateNode, flags } = fiber;
   let parent = getParentNode(fiber);
+  //? 这里如果不区分更新和插入，只有插入，那就会在创建一次组件来append
+
   // updateFunctionComponent 没有挂载stateNode属性， updateHostComponet 会挂载stateNode属性
-  if (stateNode) parent.appendChild(stateNode);
+  // Placement
+  if (flags & Palcement && stateNode) parent.appendChild(stateNode);
+  // Update
+  if (flags & Update && stateNode) {
+    console.log("update");
+    updateNodeChildren(stateNode, fiber.alternate.props, fiber.props);
+  }
+
   // commit child
   commitWorker(fiber.child);
   // commit sibling
@@ -82,5 +95,3 @@ function commitWorker(fiber) {
 function commitRoot() {
   commitWorker(wipRoot.child);
 }
-
-requestIdleCallback(workLoop);
