@@ -1,3 +1,5 @@
+import { REACT_ELEMENT, REACT_TEXT } from "../constants";
+
 export const isString = (type) => {
   return typeof type === "string";
 };
@@ -53,3 +55,9 @@ export const sameNode = (a, b) => {
   console.log(a, b, "diff");
   return !!(a && b && a.key === b.key && a.type === b.type);
 };
+
+export function toVom(element) {
+  return typeof element == "string" || typeof element == "number"
+    ? { $$typeof: REACT_ELEMENT, type: REACT_TEXT, props: element }
+    : element;
+}

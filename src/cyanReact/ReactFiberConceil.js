@@ -42,7 +42,6 @@ export function reconceilChildren(returnFiber, children) {
     const newChildren = children[i];
     let flag = newChildren?.type?.prototype?.isReactComponent ? true : false;
     const newFiber = createFiber(newChildren, returnFiber, flag);
-    console.log(newFiber, "newFiber");
     const same = sameNode(newChildren, oldFiber);
     if (same) {
       Object.assign(newFiber, {
