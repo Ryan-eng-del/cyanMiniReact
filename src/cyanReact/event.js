@@ -1,5 +1,5 @@
 import { updateQueue } from "./react";
-
+/* 合成事件代理 */
 export function addEvent(dom, eventType, handler) {
   let store = dom.__store__ || (dom.__store__ = {});
   store[eventType] = handler;

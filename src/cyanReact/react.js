@@ -1,11 +1,20 @@
-import { REACT_ELEMENT } from "./constants";
+import { REACT_ELEMENT, REACT_FORWARD_REF } from "./constants";
 import { compareTwoDom, findDom } from "./react-dom";
 import { toVom } from "./util";
 /* createElement */
 function createElement(type, config, children) {
+  let ref;
+  let key;
   let props = { ...config };
+  ref = config.ref;
+  key = config.key;
   delete props?.__self;
   delete props?.__source;
+  delete config.key;
+  delete config.ref;
+  delete config.__source;
+  delete config.__self;
+
   if (arguments.length > 3) {
     props.children = Array.prototype.slice.call(arguments, 2).map(toVom);
   } else if (arguments.length === 3) {
@@ -15,8 +24,13 @@ function createElement(type, config, children) {
     $$typeof: REACT_ELEMENT,
     type,
     props,
+    ref,
+    key,
   };
 }
+/* React 18已经抛弃了updateQueue，改成了微任务队列，这样做的好处是无论在什么地方都是批量更新，18之前如果按照updateQueue来实现的话
+当setState放入setTimeout当中就不会批量更新了，而是每一次宏任务当中的setState都会触发一次forceUpdate */
+
 /* 合成事件作为代理去实现批量更新，只执行一次,更新一次forceUpdate */
 export const updateQueue = {
   /* 是否处于批量更新模式 */
@@ -37,9 +51,11 @@ class Updater {
   constructor(classInstance) {
     this.classInstance = classInstance;
     this.pendingState = [];
+    this.callbacks = [];
   }
-  addState(partialState) {
+  addState(partialState, callback) {
     this.pendingState.push(partialState);
+    if (callback) this.callbacks.push(callback);
     this.emitUpdate();
   }
   emitUpdate() {
@@ -56,11 +72,18 @@ class Updater {
       let newState = this.getState();
       shouldUpdate(classInstance, newState);
     }
+    queueMicrotask(() =>
+      /* 调用callbacks */
+      this.callbacks.forEach((c) => c)
+    );
   }
   getState() {
     const { classInstance, pendingState } = this;
     let { state } = classInstance;
     pendingState.forEach((nState) => {
+      if (typeof nState === "function") {
+        nState = nState(state);
+      }
       state = { ...state, ...nState };
     });
     pendingState.length = 0;
@@ -80,9 +103,11 @@ class Component {
     this.props = props;
     this.updater = new Updater(this);
   }
-  setState(partialState) {
-    this.updater.addState(partialState);
+
+  setState(partialState, callback) {
+    this.updater.addState(partialState, callback);
   }
+
   forceUpdate() {
     console.log("forceUpdate");
     let oldRenderVdom = this.oldRenderVdom;
@@ -92,5 +117,14 @@ class Component {
     this.oldRenderVdom = newRendeVdom;
   }
 }
-const React = { createElement, Component };
+function createRef() {
+  return { current: null };
+}
+function forwardRef(render) {
+  return {
+    $$typeof: REACT_FORWARD_REF,
+    render,
+  };
+}
+const React = { createElement, Component, createRef, forwardRef };
 export default React;

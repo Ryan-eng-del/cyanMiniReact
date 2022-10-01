@@ -10,9 +10,10 @@
 //   scheduleUpdateOnFiber(fiberRoot);
 // }
 
-import { REACT_TEXT } from "./constants";
+import { REACT_FORWARD_REF, REACT_TEXT } from "./constants";
 import { addEvent } from "./event";
 // vdom -> dom
+
 function render(vdom, container) {
   let newDom = createDom(vdom);
   container.appendChild(newDom);
@@ -25,9 +26,11 @@ function reconceilChildren(vdom, parent) {
 }
 
 function createDom(vdom) {
-  const { type, props } = vdom;
+  const { type, props, ref } = vdom;
   let dom = null;
-  if (type === REACT_TEXT) {
+  if (type && type.$$typeof === REACT_FORWARD_REF) {
+    return mountForwardComponent(vdom);
+  } else if (type === REACT_TEXT) {
     dom = document.createTextNode(props);
   } else if (typeof type == "function") {
     if (type.isReactComponent) return mountClassComponent(vdom);
@@ -46,16 +49,28 @@ function createDom(vdom) {
   }
   /* 将dom挂载到vdom */
   vdom.dom = dom;
+  if (ref) ref.current = dom;
   return dom;
 }
+
+/* Forward组件 */
+function mountForwardComponent(vdom) {
+  const { type, props, ref } = vdom;
+  let renderVdom = type.render(props, ref);
+  vdom.oldRenderVdom = renderVdom;
+  return createDom(renderVdom);
+}
+
 /* class 组件 */
 function mountClassComponent(vdom) {
-  const { type: ClassComponent, props } = vdom;
+  const { type: ClassComponent, props, ref } = vdom;
   const renderInstance = new ClassComponent(props);
+  if (ref) ref.current = renderInstance;
   const renderVdom = renderInstance.render();
   renderInstance.oldRenderVdom = vdom.oldRenderVdom = renderVdom;
   return createDom(renderVdom);
 }
+
 /* function 组件 */
 function mountFunctionComponent(vdom) {
   let { type: FunctionComponent, props } = vdom;
@@ -63,6 +78,7 @@ function mountFunctionComponent(vdom) {
   vdom.oldRenderVdom = renderVdom;
   return createDom(renderVdom);
 }
+
 function updateProps(dom, oldProps = {}, newProps) {
   /* handle add and update attributes */
   for (const key in newProps) {
@@ -85,6 +101,7 @@ function updateProps(dom, oldProps = {}, newProps) {
     }
   }
 }
+
 /* vdom get dom */
 export function findDom(vdom) {
   if (!vdom) return null;
