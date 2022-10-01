@@ -17,6 +17,7 @@ import { addEvent } from "./event";
 function render(vdom, container) {
   let newDom = createDom(vdom);
   container.appendChild(newDom);
+  if (newDom.componentDidMount) newDom.componentDidMount();
 }
 
 function reconceilChildren(vdom, parent) {
@@ -49,6 +50,7 @@ function createDom(vdom) {
   }
   /* 将dom挂载到vdom */
   vdom.dom = dom;
+  /* 挂载ref */
   if (ref) ref.current = dom;
   return dom;
 }
@@ -65,10 +67,17 @@ function mountForwardComponent(vdom) {
 function mountClassComponent(vdom) {
   const { type: ClassComponent, props, ref } = vdom;
   const renderInstance = new ClassComponent(props);
+  if (renderInstance.componentWillMount) renderInstance.componentWillMount();
+
   if (ref) ref.current = renderInstance;
   const renderVdom = renderInstance.render();
   renderInstance.oldRenderVdom = vdom.oldRenderVdom = renderVdom;
-  return createDom(renderVdom);
+  let dom = createDom(renderVdom);
+  if (renderInstance.componentDidMount) {
+    dom.componentDidMount =
+      renderInstance.componentDidMount.bind(renderInstance);
+  }
+  return dom;
 }
 
 /* function 组件 */

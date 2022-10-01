@@ -2,6 +2,14 @@ import React from "./cyanReact/react.js";
 import "./index.css";
 import ReactDom from "./cyanReact/react-dom";
 
+/* 实现React 类组件基本生命周期 
+
+ initialization  -> setup props and state
+ mounting -> componentWillMount -> render -> componentDidMount
+ update -> shouldComponentUpdate true -> componentWillUpdate -> forceupdate -> render ->  componentDidUpdate
+                                 false -> 只负责更新state,但不会更新视图
+*/
+
 function FunctionComponent({ name }) {
   return (
     <div className="border">
@@ -25,6 +33,22 @@ class ClassCpn extends React.Component {
     this.b = React.createRef();
     this.c = React.createRef();
   }
+  componentWillMount() {
+    console.log("willmount --liftcycle");
+  }
+  componentDidMount() {
+    console.log("didmount --liftcycle");
+  }
+  componentWillUpdate() {
+    console.log("willupdate --liftcycle");
+  }
+  componentDidUpdate() {
+    console.log("didupdate --liftcycle");
+  }
+  shouldComponentUpdate() {
+    console.log("shouldupdate --liftcycle");
+    return true;
+  }
   handleDivClick = () => {
     console.log("handleDivClick");
   };
@@ -45,6 +69,7 @@ class ClassCpn extends React.Component {
     // this.setState({ count: 4 });
   };
   render() {
+    console.log("render --liftcycle");
     return (
       <div className="border" onClick={this.handleDivClick}>
         <div ref={this.a}>{this.props.name}</div>

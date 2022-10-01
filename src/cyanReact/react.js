@@ -92,8 +92,24 @@ class Updater {
 }
 
 function shouldUpdate(classInstance, newState) {
+  /* 表示是否要更新 */
+  let willUpdate = true;
+  /* 有方法并且执行结果为false，不需要更新 */
+  if (
+    classInstance.shouldComponentUpdate &&
+    !classInstance.shouldComponentUpdate(classInstance.props, newState)
+  ) {
+    willUpdate = false;
+  }
+  if (classInstance.componentWillUpdate) {
+    classInstance.componentWillUpdate();
+  }
+  /* 但是无论是否要更新，都要更新state，
+  但是不同的是，我们说的更新，定义是是否更新渲染Dom */
   classInstance.state = newState;
-  classInstance.forceUpdate();
+  if (willUpdate) {
+    classInstance.forceUpdate();
+  }
 }
 
 class Component {
@@ -115,6 +131,9 @@ class Component {
     let newRendeVdom = this.render();
     compareTwoDom(oldDom.parentNode, oldRenderVdom, newRendeVdom);
     this.oldRenderVdom = newRendeVdom;
+    if (this.componentDidUpdate) {
+      this.componentDidUpdate();
+    }
   }
 }
 function createRef() {
