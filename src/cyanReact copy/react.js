@@ -84,7 +84,6 @@ class Component {
     this.updater.addState(partialState);
   }
   forceUpdate() {
-    console.log("forceUpdate");
     let oldRenderVdom = this.oldRenderVdom;
     let oldDom = findDom(oldRenderVdom);
     let newRendeVdom = this.render();

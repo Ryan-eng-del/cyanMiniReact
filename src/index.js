@@ -17,12 +17,17 @@ class ClassCpn extends React.Component {
       count: 1,
     };
   }
-  handleClick = () => {
-    this.setState({ count: this.state.count + 1 });
+  handleDivClick = () => {
+    console.log("handleDivClick");
+  };
+  handleClick = (event) => {
+    this.setState({ count: 2 });
+    this.setState({ count: 1 });
+    this.setState({ count: 4 });
   };
   render() {
     return (
-      <div className="border">
+      <div className="border" onClick={this.handleDivClick}>
         <div>{this.props.name}</div>
         <div>{this.state.count}</div>
         <button onClick={this.handleClick}>+1</button>
