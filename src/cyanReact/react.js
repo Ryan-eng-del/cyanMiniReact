@@ -1,4 +1,4 @@
-import { REACT_ELEMENT, REACT_FORWARD_REF } from "./constants";
+import { REACT_ELEMENT, REACT_FORWARD_REF, REACT_FRAGMENT } from "./constants";
 import { compareTwoDom, findDom } from "./react-dom";
 import { toVom } from "./util";
 
@@ -156,5 +156,11 @@ function forwardRef(render) {
   };
 }
 
-const React = { createElement, Component, createRef, forwardRef };
+const React = {
+  createElement,
+  Component,
+  createRef,
+  forwardRef,
+  Fragment: REACT_FRAGMENT,
+};
 export default React;

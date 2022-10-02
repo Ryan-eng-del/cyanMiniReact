@@ -23,6 +23,7 @@ function Fn(props, forwardRef) {
   return <div ref={forwardRef}>Hello</div>;
 }
 class Test extends React.Component {
+  // eslint-disable-next-line
   constructor(props) {
     super(props);
   }
@@ -42,6 +43,7 @@ class ClassCpn extends React.Component {
     super(props);
     this.state = {
       count: 1,
+      list: ["a", "b", "c", "d", "e", "f"],
     };
     this.a = React.createRef();
     this.b = React.createRef();
@@ -66,6 +68,9 @@ class ClassCpn extends React.Component {
   handleDivClick = () => {
     console.log("handleDivClick");
   };
+  handleChange = () => {
+    this.setState({ list: ["a", "c", "e", "b", "g"] });
+  };
   handleClick = (event) => {
     /* 实现setState传入函数 */
     this.setState((pre) => ({
@@ -75,8 +80,7 @@ class ClassCpn extends React.Component {
       count: pre.count + 1,
     }));
     /* 实现React.createRef */
-    console.log(this.a, this.b, this.c, "createRef");
-    setTimeout(() => console.log(this.state.count, "count"));
+    // console.log(this.a, this.b, this.c, "createRef");
     /* 实现阻止冒泡 */
     // event.stopPropagation();
     // this.setState({ count: 2 });
@@ -94,7 +98,13 @@ class ClassCpn extends React.Component {
         {/* <ForwardRef ref={this.c} /> */}
         {this.state.count === 5 ? null : <Fn ref={this.c} />}
         {/* React.createElement(ForwardRef (type名称是上面的forward对象), {ref: this.func}) */}
+        <button onClick={this.handleChange}>diff move node</button>
         <Test count={this.state.count} />
+        <ul>
+          {this.state.list.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
       </div>
     );
   }

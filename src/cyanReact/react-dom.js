@@ -10,7 +10,13 @@
 //   scheduleUpdateOnFiber(fiberRoot);
 // }
 
-import { REACT_FORWARD_REF, REACT_TEXT } from "./constants";
+import {
+  MOVE,
+  PLACEMENT,
+  REACT_FORWARD_REF,
+  REACT_FRAGMENT,
+  REACT_TEXT,
+} from "./constants";
 import { addEvent } from "./event";
 
 // vdom -> dom
@@ -22,6 +28,7 @@ function render(vdom, container) {
 
 function reconceilChildren(vdom, parent) {
   for (let i = 0; i < vdom.length; i++) {
+    vdom[i].mountIndex = i;
     render(vdom[i], parent);
   }
 }
@@ -32,6 +39,8 @@ function createDom(vdom) {
   let dom = null;
   if (type && type.$$typeof === REACT_FORWARD_REF) {
     return mountForwardComponent(vdom);
+  } else if (type === REACT_FRAGMENT) {
+    dom = document.createDocumentFragment();
   } else if (type === REACT_TEXT) {
     dom = document.createTextNode(props);
   } else if (typeof type == "function") {
@@ -46,6 +55,7 @@ function createDom(vdom) {
     if (Array.isArray(props.children)) {
       reconceilChildren(props.children, dom);
     } else if (typeof props.children === "object") {
+      props.children.mountIndex = 0;
       render(props.children, dom);
     }
   }
@@ -124,18 +134,20 @@ export function findDom(vdom) {
 }
 
 /* Diff */
-export function compareTwoDom(parentDom, oldVdom, newVdom) {
+export function compareTwoDom(parentDom, oldVdom, newVdom, nextDom) {
   // debugger;
   if (!oldVdom && !newVdom) return;
   else if (oldVdom && !newVdom) {
     unMountVdom(oldVdom);
   } else if (!oldVdom && newVdom) {
     let newDom = createDom(newVdom);
-    parentDom.appendChild(newDom); //Bug
+    if (nextDom) parentDom.insertBefore(newDom, nextDom);
+    else parentDom.appendChild(newDom);
   } else if (oldVdom && newVdom && oldVdom.type !== newVdom.type) {
     unMountVdom(oldVdom);
     let newDom = createDom(newVdom);
-    parentDom.appendChild(newDom); //Bug
+    if (nextDom) parentDom.insertBefore(newDom, nextDom);
+    else parentDom.appendChild(newDom);
   } else {
     /* 新老节点都有值，并且类型相同 */
     updateElement(oldVdom, newVdom);
@@ -164,7 +176,6 @@ function updateElement(oldVdom, newVdom) {
 }
 /* 更新类组件 */
 function updateClassCpn(oldVdom, newVdom) {
-  console.log(oldVdom, newVdom);
   const classInstance = (newVdom.classInstance = oldVdom.classInstance);
   newVdom.oldRednerVdom = oldVdom.oldRenderVdom;
   if (classInstance.componentWillReceiveProps) {
@@ -187,17 +198,92 @@ function updateFunctionCpn(oldVdom, newVdom) {
 function updateChildren(parentDom, oldChildren, newChildren) {
   oldChildren = Array.isArray(oldChildren) ? oldChildren : [oldChildren];
   newChildren = Array.isArray(newChildren) ? newChildren : [newChildren];
-  const maxLength = Math.max(oldChildren.length, newChildren.length);
-  for (let index = 0; index < maxLength; index++) {
-    compareTwoDom(parentDom, oldChildren[index], newChildren[index]);
-  }
+  /* 增强版DOM diff 可以移动 */
+  const keyOldMap = {};
+  let lastPlaceIndex = 0;
+  const patch = [];
+  oldChildren.forEach((item, index) => {
+    let oldKey = item.key ? item.key : index;
+    keyOldMap[oldKey] = item;
+  });
+
+  newChildren.forEach((newChild, index) => {
+    newChild.mountIndex = index;
+    const newKey = newChild.key ? newChild.key : index;
+    let oldchild = keyOldMap[newKey];
+    if (oldchild) {
+      updateElement(oldchild, newChild);
+      if (oldchild.mountIndex < lastPlaceIndex) {
+        patch.push({
+          type: MOVE,
+          oldchild,
+          newChild,
+          mountIndex: index,
+        });
+      }
+      delete keyOldMap[newKey];
+      lastPlaceIndex = Math.max(lastPlaceIndex, oldchild.mountIndex);
+    } else {
+      patch.push({
+        type: PLACEMENT,
+        newChild,
+        mountIndex: index,
+      });
+    }
+  });
+
+  /* 过滤出来patch补丁包当中需要移动的老节点 */
+  let moveChildren = patch
+    .filter((action) => action.type === MOVE)
+    .map((action) => action.oldchild);
+
+  /* 先将需要移动和删除的节点删除 */
+  Object.values(keyOldMap)
+    .concat(moveChildren)
+    .forEach((oldChild) => {
+      let currentDom = findDom(oldChild);
+      currentDom.remove();
+    });
+
+  /* 处理新增和移动 */
+  patch.forEach((action) => {
+    let { type, oldchild, newChild, mountIndex } = action;
+    let childNodes = parentDom.childNodes;
+    if (type === PLACEMENT) {
+      let newDom = createDom(newChild);
+      let childNode = childNodes[mountIndex];
+      if (childNode) {
+        parentDom.insertBefore(newDom, childNode);
+      } else {
+        parentDom.appendChild(newDom);
+      }
+    } else if (type === MOVE) {
+      const oldDom = findDom(oldchild);
+      let childNode = childNodes[mountIndex];
+      if (childNode) {
+        parentDom.insertBefore(oldDom, childNode);
+      } else {
+        parentDom.appendChild(oldDom);
+      }
+    }
+  });
+
+  /* 简易版DOM diff 一一对比*/
+  // const maxLength = Math.max(oldChildren.length, newChildren.length);
+  // for (let index = 0; index < maxLength; index++) {
+  //   let nextVdom = oldChildren.find((item, i) => i > index && item);
+  //   compareTwoDom(
+  //     parentDom,
+  //     oldChildren[index],
+  //     newChildren[index],
+  //     findDom(nextVdom)
+  //   );
+  // }
 }
 
 /* 删除老节点 */
 function unMountVdom(vdom) {
-  console.log("卸载");
   let { props, ref, classInstance } = vdom;
-  console.log(vdom);
   let currentDom = findDom(vdom);
   if (classInstance && classInstance.componentWillMount) {
     classInstance.componentWillMount();
