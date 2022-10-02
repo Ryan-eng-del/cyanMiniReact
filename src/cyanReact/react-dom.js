@@ -12,8 +12,8 @@
 
 import { REACT_FORWARD_REF, REACT_TEXT } from "./constants";
 import { addEvent } from "./event";
-// vdom -> dom
 
+// vdom -> dom
 function render(vdom, container) {
   let newDom = createDom(vdom);
   container.appendChild(newDom);
@@ -26,6 +26,7 @@ function reconceilChildren(vdom, parent) {
   }
 }
 
+/* vdom -> dom */
 function createDom(vdom) {
   const { type, props, ref } = vdom;
   let dom = null;
@@ -68,7 +69,7 @@ function mountClassComponent(vdom) {
   const { type: ClassComponent, props, ref } = vdom;
   const renderInstance = new ClassComponent(props);
   if (renderInstance.componentWillMount) renderInstance.componentWillMount();
-
+  vdom.classInstance = renderInstance;
   if (ref) ref.current = renderInstance;
   const renderVdom = renderInstance.render();
   renderInstance.oldRenderVdom = vdom.oldRenderVdom = renderVdom;
@@ -88,6 +89,7 @@ function mountFunctionComponent(vdom) {
   return createDom(renderVdom);
 }
 
+/* 更新dom节点属性 */
 function updateProps(dom, oldProps = {}, newProps) {
   /* handle add and update attributes */
   for (const key in newProps) {
@@ -121,10 +123,95 @@ export function findDom(vdom) {
   }
 }
 
+/* Diff */
 export function compareTwoDom(parentDom, oldVdom, newVdom) {
-  let oldDom = findDom(oldVdom);
-  let newDom = createDom(newVdom);
-  parentDom.replaceChild(newDom, oldDom);
+  // debugger;
+  if (!oldVdom && !newVdom) return;
+  else if (oldVdom && !newVdom) {
+    unMountVdom(oldVdom);
+  } else if (!oldVdom && newVdom) {
+    let newDom = createDom(newVdom);
+    parentDom.appendChild(newDom); //Bug
+  } else if (oldVdom && newVdom && oldVdom.type !== newVdom.type) {
+    unMountVdom(oldVdom);
+    let newDom = createDom(newVdom);
+    parentDom.appendChild(newDom); //Bug
+  } else {
+    /* 新老节点都有值，并且类型相同 */
+    updateElement(oldVdom, newVdom);
+  }
+}
+
+/* 可以复用，更新元素节点 */
+function updateElement(oldVdom, newVdom) {
+  if (oldVdom.type === REACT_TEXT) {
+    let currentDom = (newVdom.dom = findDom(oldVdom));
+    if (oldVdom.props !== newVdom.props) {
+      /* 文本节点做过特殊处理，文字在文本vdom的props属性上 */
+      currentDom.textContent = newVdom.props;
+    }
+  } else if (typeof oldVdom.type === "string") {
+    let currentDom = (newVdom.dom = findDom(oldVdom));
+    updateProps(currentDom, oldVdom.props, newVdom.props);
+    updateChildren(currentDom, oldVdom.props.children, newVdom.props.children);
+  } else if (typeof oldVdom.type === "function") {
+    if (oldVdom.type.isReactComponent) {
+      updateClassCpn(oldVdom, newVdom);
+    } else {
+      updateFunctionCpn(oldVdom, newVdom);
+    }
+  }
+}
+/* 更新类组件 */
+function updateClassCpn(oldVdom, newVdom) {
+  console.log(oldVdom, newVdom);
+  const classInstance = (newVdom.classInstance = oldVdom.classInstance);
+  newVdom.oldRednerVdom = oldVdom.oldRenderVdom;
+  if (classInstance.componentWillReceiveProps) {
+    classInstance.componentWillReceiveProps();
+  }
+  classInstance.updater.emitUpdate(newVdom.props);
+}
+
+/* 更新函数式组件 */
+function updateFunctionCpn(oldVdom, newVdom) {
+  let currentDom = findDom(oldVdom);
+  if (!currentDom) return;
+  let { type, props } = newVdom;
+  let newRenderVdom = type(props);
+  compareTwoDom(currentDom.parentNode, oldVdom.oldRenderVdom, newRenderVdom);
+  newVdom.oldRenderVdom = newRenderVdom;
+}
+
+/* 更新子节点 */
+function updateChildren(parentDom, oldChildren, newChildren) {
+  oldChildren = Array.isArray(oldChildren) ? oldChildren : [oldChildren];
+  newChildren = Array.isArray(newChildren) ? newChildren : [newChildren];
+  const maxLength = Math.max(oldChildren.length, newChildren.length);
+  for (let index = 0; index < maxLength; index++) {
+    compareTwoDom(parentDom, oldChildren[index], newChildren[index]);
+  }
+}
+
+/* 删除老节点 */
+function unMountVdom(vdom) {
+  console.log("卸载");
+  let { props, ref, classInstance } = vdom;
+  console.log(vdom);
+  let currentDom = findDom(vdom);
+  if (classInstance && classInstance.componentWillMount) {
+    classInstance.componentWillMount();
+  }
+  if (ref) ref.current = null;
+  if (props.children) {
+    let children = Array.isArray(props.children)
+      ? props.children
+      : [props.children];
+    children.forEach(unMountVdom);
+  }
+
+  /* 将该元素所在的Dom结构中删除 */
+  if (currentDom) currentDom.remove();
 }
 //eslint-disable-next-line
 export default { render };

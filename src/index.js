@@ -18,11 +18,25 @@ function FunctionComponent({ name }) {
     </div>
   );
 }
+
 function Fn(props, forwardRef) {
   return <div ref={forwardRef}>Hello</div>;
 }
+class Test extends React.Component {
+  constructor(props) {
+    super(props);
+  }
+  render() {
+    return (
+      <div>
+        Test{this.props.count}
+        <div>H</div>
+      </div>
+    );
+  }
+}
 /* 实现forwardRef()转发函数式组件，使得支持获取函数式子组件的ref */
-const ForwardRef = React.forwardRef(Fn);
+// const ForwardRef = React.forwardRef(Fn);
 class ClassCpn extends React.Component {
   constructor(props) {
     super(props);
@@ -62,6 +76,7 @@ class ClassCpn extends React.Component {
     }));
     /* 实现React.createRef */
     console.log(this.a, this.b, this.c, "createRef");
+    setTimeout(() => console.log(this.state.count, "count"));
     /* 实现阻止冒泡 */
     // event.stopPropagation();
     // this.setState({ count: 2 });
@@ -77,8 +92,9 @@ class ClassCpn extends React.Component {
         <button onClick={this.handleClick}>+1</button>
         <span>Hello This is MY Class cpn</span>
         {/* <ForwardRef ref={this.c} /> */}
-        <ForwardRef ref={this.c} />
+        {this.state.count === 5 ? null : <Fn ref={this.c} />}
         {/* React.createElement(ForwardRef (type名称是上面的forward对象), {ref: this.func}) */}
+        <Test count={this.state.count} />
       </div>
     );
   }
