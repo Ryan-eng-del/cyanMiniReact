@@ -1,13 +1,19 @@
 import React from "./cyanReact/react.js";
 import "./index.css";
 import ReactDom from "./cyanReact/react-dom";
+const ColorContext = React.createContext();
 
 /* 实现React 类组件基本生命周期 
 
  initialization  -> setup props and state
- mounting -> componentWillMount -> render -> componentDidMount
- update -> shouldComponentUpdate true -> componentWillUpdate -> forceupdate -> render ->  componentDidUpdate
-                                 false -> 只负责更新state,但不会更新视图
+ mounting -> componentWillMount -> render(React更新DOM 和 refs) -> componentDidMount
+ update -> componentWillReceiveProps(子组件当中会用到)-> shouldComponentUpdate true -> componentWillUpdate -> forceupdate -> render ->  componentDidUpdate
+                                                                            false -> 只负责更新state,但不会更新视图
+*/
+
+/* 新的生命周期
+  mountint -> constructor -> setup props and state  -> render -> (React更新DOM 和 refs) -> componentDidMount
+  update -> getDerivedStateFromProps（forceUpdate,(子组件当中会用到)） -> shouldComponentUpdate true -> -> render  -> render -> getSnapshotBeforeUpdate（update之前去执行） -> (React更新DOM 和 refs) -> componentDidUpdate                                                                                       false -> 只负责更新state,但不会更新视图
 */
 
 function FunctionComponent({ name }) {
@@ -26,12 +32,47 @@ class Test extends React.Component {
   // eslint-disable-next-line
   constructor(props) {
     super(props);
+    this.state = { color: "red" };
   }
+  changeColor = () => {
+    this.setState({
+      color: "black",
+    });
+  };
+  /* 新版生命周期，已经修改为静态方法：getDerivedStateFromProps */
+  // componentWillReceiveProps(newProps) {}
+  render() {
+    const contextValue = {
+      color: this.state.color,
+      changeColor: this.changeColor,
+    };
+
+    return (
+      <div>
+        <ColorContext.Provider value={contextValue}>
+          <div>
+            <div>Hhhh</div>
+            <TestProvider />
+          </div>
+        </ColorContext.Provider>
+      </div>
+    );
+  }
+}
+class TestProvider extends React.Component {
+  static contextType = ColorContext;
+  constructor(props) {
+    super(props);
+  }
+  handleChange = () => {
+    console.log(this.context, "conetxt");
+    this.context.changeColor();
+  };
   render() {
     return (
       <div>
-        Test{this.props.count}
-        <div>H</div>
+        <div style={{ color: this.context.color }}>Hhhhh</div>
+        <button onClick={this.handleChange}>change black</button>
       </div>
     );
   }
@@ -91,20 +132,20 @@ class ClassCpn extends React.Component {
     console.log("render --liftcycle");
     return (
       <div className="border" onClick={this.handleDivClick}>
-        <div ref={this.a}>{this.props.name}</div>
+        {/* <div ref={this.a}>{this.props.name}</div>
         <div ref={this.b}>{this.state.count}</div>
         <button onClick={this.handleClick}>+1</button>
-        <span>Hello This is MY Class cpn</span>
+        <span>Hello This is MY Class cpn</span> */}
         {/* <ForwardRef ref={this.c} /> */}
-        {this.state.count === 5 ? null : <Fn ref={this.c} />}
+        {/* {this.state.count === 5 ? null : <Fn ref={this.c} />} */}
         {/* React.createElement(ForwardRef (type名称是上面的forward对象), {ref: this.func}) */}
-        <button onClick={this.handleChange}>diff move node</button>
+        {/* <button onClick={this.handleChange}>diff move node</button> */}
         <Test count={this.state.count} />
-        <ul>
+        {/* <ul>
           {this.state.list.map((item) => (
             <li key={item}>{item}</li>
           ))}
-        </ul>
+        </ul> */}
       </div>
     );
   }
@@ -112,8 +153,8 @@ class ClassCpn extends React.Component {
 
 const jsx = (
   <div className="border">
-    <FunctionComponent name={"second function component"} />
-    <div>Hello World</div>
+    {/* <FunctionComponent name={"second function component"} />
+    <div>Hello World</div> */}
     <ClassCpn name={"class cpn"} />
   </div>
 );

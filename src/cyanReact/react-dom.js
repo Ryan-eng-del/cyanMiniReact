@@ -13,8 +13,10 @@
 import {
   MOVE,
   PLACEMENT,
+  REACT_CONTEXT,
   REACT_FORWARD_REF,
   REACT_FRAGMENT,
+  REACT_PROVIDER,
   REACT_TEXT,
 } from "./constants";
 import { addEvent } from "./event";
@@ -39,6 +41,10 @@ function createDom(vdom) {
   let dom = null;
   if (type && type.$$typeof === REACT_FORWARD_REF) {
     return mountForwardComponent(vdom);
+  } else if (type && type.$$typeof === REACT_PROVIDER) {
+    return mountProviderComponent(vdom);
+  } else if (type && type.$$typeof === REACT_CONTEXT) {
+    return mountContextComponent(vdom);
   } else if (type === REACT_FRAGMENT) {
     dom = document.createDocumentFragment();
   } else if (type === REACT_TEXT) {
@@ -78,6 +84,9 @@ function mountForwardComponent(vdom) {
 function mountClassComponent(vdom) {
   const { type: ClassComponent, props, ref } = vdom;
   const renderInstance = new ClassComponent(props);
+  if (ClassComponent.contextType) {
+    renderInstance.context = ClassComponent.contextType._currentValue;
+  }
   if (renderInstance.componentWillMount) renderInstance.componentWillMount();
   vdom.classInstance = renderInstance;
   if (ref) ref.current = renderInstance;
@@ -98,7 +107,24 @@ function mountFunctionComponent(vdom) {
   vdom.oldRenderVdom = renderVdom;
   return createDom(renderVdom);
 }
+/* Context Provider */
+function mountProviderComponent(vdom) {
+  let { type, props } = vdom;
+  let context = type._context;
+  context._currentValue = props.value;
+  let renderVdom = props.children;
+  vdom.oldRenderVdom = renderVdom;
+  return createDom(renderVdom);
+}
 
+/* Context Consumber */
+function mountContextComponent(vdom) {
+  let { type, props } = vdom;
+  let context = type._context;
+  let renderVdom = props.children(context._currentValue);
+  vdom.oldRenderVdom = renderVdom;
+  return createDom(renderVdom);
+}
 /* 更新dom节点属性 */
 function updateProps(dom, oldProps = {}, newProps) {
   /* handle add and update attributes */
@@ -106,7 +132,7 @@ function updateProps(dom, oldProps = {}, newProps) {
     if (key === "children") continue;
     else if (key === "style") {
       let styObj = newProps[key];
-      for (const attr of styObj) {
+      for (const attr in styObj) {
         dom.style[attr] = styObj[attr];
       }
     } else if (/^on[A-Z].*/.test(key)) {
@@ -162,6 +188,10 @@ function updateElement(oldVdom, newVdom) {
       /* 文本节点做过特殊处理，文字在文本vdom的props属性上 */
       currentDom.textContent = newVdom.props;
     }
+  } else if (oldVdom.type.$$typeof === REACT_PROVIDER) {
+    updateProviderComponent(oldVdom, newVdom);
+  } else if (oldVdom.type.$$typeof === REACT_CONTEXT) {
+    updateContextConponent(oldVdom, newVdom);
   } else if (typeof oldVdom.type === "string") {
     let currentDom = (newVdom.dom = findDom(oldVdom));
     updateProps(currentDom, oldVdom.props, newVdom.props);
@@ -174,6 +204,30 @@ function updateElement(oldVdom, newVdom) {
     }
   }
 }
+
+/* 更新Provider组件 */
+function updateProviderComponent(oldVdom, newVdom) {
+  let currentDom = findDom(oldVdom);
+  let parentDom = currentDom.parentNode;
+  let { type, props } = newVdom;
+  let context = type._context;
+  context._currentValue = props.value;
+  let renderVdom = props.children;
+  compareTwoDom(parentDom, oldVdom.oldRenderVdom, renderVdom);
+  newVdom.oldRenderVdom = renderVdom;
+}
+
+/* 更新Context组件 */
+function updateContextConponent(oldVdom, newVdom) {
+  let currentDom = findDom(oldVdom);
+  let parentDom = currentDom.parentNode;
+  let { type, props } = newVdom;
+  let context = type._context;
+  let renderVdom = props.children(context._currentValue);
+  compareTwoDom(parentDom, oldVdom.oldRenderVdom, renderVdom);
+  newVdom.oldRenderVdom = renderVdom;
+}
+
 /* 更新类组件 */
 function updateClassCpn(oldVdom, newVdom) {
   const classInstance = (newVdom.classInstance = oldVdom.classInstance);
@@ -203,11 +257,13 @@ function updateChildren(parentDom, oldChildren, newChildren) {
   let lastPlaceIndex = 0;
   const patch = [];
   oldChildren.forEach((item, index) => {
+    if (!item) return;
     let oldKey = item.key ? item.key : index;
     keyOldMap[oldKey] = item;
   });
 
   newChildren.forEach((newChild, index) => {
+    if (!newChild) return;
     newChild.mountIndex = index;
     const newKey = newChild.key ? newChild.key : index;
     let oldchild = keyOldMap[newKey];

@@ -1,9 +1,16 @@
-import { REACT_ELEMENT, REACT_FORWARD_REF, REACT_FRAGMENT } from "./constants";
+import {
+  REACT_CONTEXT,
+  REACT_ELEMENT,
+  REACT_FORWARD_REF,
+  REACT_FRAGMENT,
+  REACT_PROVIDER,
+} from "./constants";
 import { compareTwoDom, findDom } from "./react-dom";
 import { toVom } from "./util";
 
 /* createElement jsx -> vdom*/
 function createElement(type, config, children) {
+  console.log(arguments, "arguements");
   let ref;
   let key;
   let props = { ...config };
@@ -32,6 +39,7 @@ function createElement(type, config, children) {
 
 /* React 18已经抛弃了updateQueue，改成了微任务队列，这样做的好处是无论在什么地方都是批量更新，18之前如果按照updateQueue来实现的话
 当setState放入setTimeout当中就不会批量更新了，而是每一次宏任务当中的setState都会触发一次forceUpdate */
+
 class Component {
   static isReactComponent = true;
 
@@ -48,6 +56,19 @@ class Component {
     console.log("forceUpdate");
     let oldRenderVdom = this.oldRenderVdom;
     let oldDom = findDom(oldRenderVdom);
+    if (this.constructor.contextType) {
+      this.context = this.constructor.contextType._currentValue;
+    }
+    if (this.constructor.getDerivedStateFromProps) {
+      let newState = this.constructor.getDerivedStateFromProps(
+        this.props,
+        this.state
+      );
+      if (newState) {
+        this.state = newState;
+      }
+    }
+    /* 调用snapShort快照 */
     let newRendeVdom = this.render();
     compareTwoDom(oldDom.parentNode, oldRenderVdom, newRendeVdom);
     this.oldRenderVdom = newRendeVdom;
@@ -155,12 +176,27 @@ function forwardRef(render) {
     render,
   };
 }
-
+function createContext() {
+  const context = {
+    $$typeof: REACT_CONTEXT,
+    _currentValue: undefined,
+  };
+  context.Provider = {
+    $$typeof: REACT_PROVIDER,
+    _context: context,
+  };
+  context.Consumer = {
+    $$typeof: REACT_CONTEXT,
+    _context: context,
+  };
+  return context;
+}
 const React = {
   createElement,
   Component,
   createRef,
   forwardRef,
   Fragment: REACT_FRAGMENT,
+  createContext,
 };
 export default React;
