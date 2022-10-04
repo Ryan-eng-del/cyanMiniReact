@@ -23,6 +23,7 @@ function dispathcEvent(event) {
   }
   updateQueue.batchUpdate();
 }
+
 function createSyntheticEvent(event) {
   let syntheticEvent = {};
   for (const key in event) {

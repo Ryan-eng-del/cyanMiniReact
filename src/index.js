@@ -4,6 +4,10 @@ import ReactDom, {
   useState,
   useCallback,
   useMemo,
+  useContext,
+  useEffect,
+  useRef,
+  useImperativeHandle,
 } from "./cyanReact/react-dom";
 const ColorContext = React.createContext();
 
@@ -32,6 +36,7 @@ function FunctionComponent({ name }) {
 // function Fn(props, forwardRef) {
 //   return <div ref={forwardRef}>Hello</div>;
 // }
+
 class Test extends React.Component {
   // eslint-disable-next-line
   constructor(props) {
@@ -182,37 +187,83 @@ const jsx = (
 /* 函数式组件：React.memo  */
 
 /* Hooks */
-function Child({ count, handleCount }) {
+const TestContext = React.createContext();
+function Child({ count, handleCount }, ref) {
   console.log("child render");
+  const inputRef = useRef();
+  useImperativeHandle(ref, () => ({
+    focus() {
+      inputRef.current.focus();
+    },
+  }));
+  const context = useContext(TestContext);
   return (
     <div>
-      {count?.count}
+      <input ref={inputRef} />
+      <div> {count?.count} ---memoValue</div>
+      <div>{context.countValue} --- contextValue</div>
       <button onClick={() => handleCount()}>+1</button>
     </div>
   );
 }
-const MemoChild = React.memo(Child);
+// const MemoChild = React.memo(Child);
+const ForwardChild = React.forwardRef(Child);
 
 function Counter() {
   const [count, setCount] = useState(0);
   const [show, setShow] = useState(true);
+  /* 如何setState（异步执行）之后，拿到最新值，这里我们可以将
+  最新值放入ref.current当中，这样每次去取ref.current就拿到的是最新值。
+  */
+  const ref = useRef();
+  const valueRef = useRef();
   const handleShow = () => {
     setShow(!show);
   };
+
   const number = useMemo(
     () => ({
       count,
     }),
     [count]
   );
-  const handleCount = useCallback(() => setCount(count + 1), [count]);
+  /* useEffect， useLayoutEffect区别，两者的函数签名相同，
+  前者是会在浏览器渲染结束之后执行useEffect当中的宏任务，后者在浏览器绘制之前执行执行useLayoutEffect当中的微任务
+  当我们添加动画的时候，useEffect动画正常，useLayoutEffect动画在绘制之前就已经执行完了。
+  */
+  useEffect(() => {
+    // debugger;
+    const timer = setInterval(() => {
+      console.log("开启一个定时器");
+      setCount(count + 1);
+    });
+    clearInterval(timer);
+    return () => {
+      console.log("销毁一个定时器");
+      clearInterval(timer);
+    };
+  }, [count]);
+
+  const handleCount = useCallback(() => {
+    const newValue = count + 1;
+    valueRef.current = newValue;
+    setCount(newValue);
+    console.log(ref.current.focus(), "ref");
+    console.log(valueRef, "count");
+  }, [count]);
+  // const handleCount = () => setCount(count + 1);
 
   return (
     <div>
-      {show ? <div>{count}</div> : null}
-      <button onClick={() => handleShow()}>show</button>
-      <button onClick={() => handleCount()}>+1</button>
-      <MemoChild count={number} handleCount={handleCount} />
+      <div ref={ref}>{count} --countValue</div>
+      <TestContext.Provider value={{ countValue: count }}>
+        <div>
+          {show ? <div>{count} --showValue</div> : null}
+          <button onClick={() => handleShow()}>show</button>
+          {/* <button onClick={() => handleCount()}>+1</button> */}
+          <ForwardChild count={number} handleCount={handleCount} ref={ref} />
+        </div>
+      </TestContext.Provider>
     </div>
   );
 }

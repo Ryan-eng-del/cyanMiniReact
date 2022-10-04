@@ -43,18 +43,76 @@ function render(vdom, container) {
   };
 }
 
+/* useState是useReducer的语法糖 ->  React源码实现 useState = () => useReducer(null, initialState) */
 export function useState(initialState) {
   const hookValue = hookState[hookIndex];
   hookState[hookIndex] = hookValue === undefined ? initialState : hookValue;
   const curIndex = hookIndex;
   function setState(newState) {
+    newState =
+      typeof newState === "function" ? newState(hookState[curIndex]) : newState;
     hookState[curIndex] = newState;
-    // console.log(scheduleUpdate, "function");
     // debugger;
     scheduleUpdate();
   }
   return [hookState[hookIndex++], setState];
 }
+
+export function useEffect(callback, deps = []) {
+  let curIndex = hookIndex;
+  // debugger;
+  if (hookState[hookIndex]) {
+    let [destory, oldDeps] = hookState[hookIndex];
+    let isSame = deps && deps.every((item, index) => item === oldDeps[index]);
+    if (isSame) {
+      hookIndex++;
+    } else {
+      destory && destory();
+      setTimeout(() => {
+        const destory = callback();
+        hookState[curIndex] = [destory, deps];
+      });
+      hookIndex++;
+    }
+  } else {
+    setTimeout(() => {
+      const destory = callback();
+      hookState[curIndex] = [destory, deps];
+    });
+    hookIndex++;
+  }
+}
+
+export function useLayoutEffect(callback, deps = []) {
+  let curIndex = hookIndex;
+  // debugger;
+  if (hookState[hookIndex]) {
+    let [destory, oldDeps] = hookState[hookIndex];
+    let isSame = deps && deps.every((item, index) => item === oldDeps[index]);
+    if (isSame) {
+      hookIndex++;
+    } else {
+      destory && destory();
+      queueMicrotask(() => {
+        const destory = callback();
+        hookState[curIndex] = [destory, deps];
+      });
+      hookIndex++;
+    }
+  } else {
+    queueMicrotask(() => {
+      const destory = callback();
+      hookState[curIndex] = [destory, deps];
+    });
+    hookIndex++;
+  }
+}
+
+export function useRef() {
+  hookState[hookIndex] = hookState[hookIndex] || { current: null };
+  return hookState[hookIndex++];
+}
+
 export function useMemo(factory, deps) {
   if (hookState[hookIndex]) {
     let [memoObj, oldDeps] = hookState[hookIndex];
@@ -74,14 +132,22 @@ export function useMemo(factory, deps) {
   }
 }
 
-export function useCallback(callback, deps) {
+export function useContext(context) {
+  return context._currentValue;
+}
+
+export function useImperativeHandle(ref, factory) {
+  ref.current = factory();
+}
+export function useCallback(callback, deps = []) {
+  // debugger;
   if (hookState[hookIndex]) {
-    let [callback, oldDeps] = hookState[hookIndex];
+    let [lastCallback, oldDeps] = hookState[hookIndex];
     let isSame = deps.every((item, index) => item === oldDeps[index]);
     // debugger;
     if (isSame) {
       hookIndex++;
-      return callback;
+      return lastCallback;
     } else {
       hookState[hookIndex++] = [callback, deps];
       return callback;
@@ -91,8 +157,23 @@ export function useCallback(callback, deps) {
     return callback;
   }
 }
+
+/* useState React源码实现 useState = () => useReducer(null, initialState) */
+export function useReducer(reducer, initialState) {
+  const hookValue = hookState[hookIndex];
+  hookState[hookIndex] = hookValue === undefined ? initialState : hookValue;
+  const currentIndex = hookIndex;
+  function dispatch(action) {
+    let oldState = hookState[currentIndex];
+    hookState[currentIndex] = reducer(oldState, action);
+    scheduleUpdate();
+  }
+  return [hookState[hookIndex++], dispatch];
+}
+
 function reconceilChildren(vdom, parent) {
   for (let i = 0; i < vdom.length; i++) {
+    if (!vdom[i]) return;
     vdom[i].mountIndex = i;
     mount(vdom[i], parent);
   }
@@ -122,9 +203,11 @@ function createDom(vdom) {
   } else {
     dom = document.createElement(type);
   }
+
   // update attributes
   updateProps(dom, {}, props);
   if (props?.children) {
+    // debugger;
     if (Array.isArray(props.children)) {
       reconceilChildren(props.children, dom);
     } else if (typeof props.children === "object") {

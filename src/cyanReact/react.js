@@ -201,6 +201,7 @@ class PureComponent extends Component {
     );
   }
 }
+
 /* React.memo */
 function memo(type, compare = null) {
   return {

@@ -21,6 +21,7 @@ export function updateFunctionComponent(wip) {
   const child = type(props);
   reconceilChildren(wip, child);
 }
+
 // 更新类标签
 export function updateClassComponent(wip) {
   const { type, props } = wip;
