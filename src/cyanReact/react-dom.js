@@ -22,19 +22,79 @@ import {
 } from "./constants";
 import { addEvent } from "./event";
 import { shallowEqual } from "./util";
-
-// vdom -> dom
-function render(vdom, container) {
+function mount(vdom, container) {
   let newDom = createDom(vdom);
   if (!newDom) return;
   container.appendChild(newDom);
   if (newDom.componentDidMount) newDom.componentDidMount();
 }
 
+/* Hooks */
+// vdom -> dom
+let hookState = [];
+let hookIndex = 0;
+let scheduleUpdate = null;
+function render(vdom, container) {
+  mount(vdom, container);
+
+  scheduleUpdate = () => {
+    hookIndex = 0;
+    compareTwoDom(container, vdom, vdom);
+  };
+}
+
+export function useState(initialState) {
+  const hookValue = hookState[hookIndex];
+  hookState[hookIndex] = hookValue === undefined ? initialState : hookValue;
+  const curIndex = hookIndex;
+  function setState(newState) {
+    hookState[curIndex] = newState;
+    // console.log(scheduleUpdate, "function");
+    // debugger;
+    scheduleUpdate();
+  }
+  return [hookState[hookIndex++], setState];
+}
+export function useMemo(factory, deps) {
+  if (hookState[hookIndex]) {
+    let [memoObj, oldDeps] = hookState[hookIndex];
+    let isSame = deps.every((item, index) => item === oldDeps[index]);
+    if (isSame) {
+      hookIndex++;
+      return memoObj;
+    } else {
+      const memoObj = factory();
+      hookState[hookIndex++] = [memoObj, deps];
+      return memoObj;
+    }
+  } else {
+    const memoObj = factory();
+    hookState[hookIndex++] = [memoObj, deps];
+    return memoObj;
+  }
+}
+
+export function useCallback(callback, deps) {
+  if (hookState[hookIndex]) {
+    let [callback, oldDeps] = hookState[hookIndex];
+    let isSame = deps.every((item, index) => item === oldDeps[index]);
+    // debugger;
+    if (isSame) {
+      hookIndex++;
+      return callback;
+    } else {
+      hookState[hookIndex++] = [callback, deps];
+      return callback;
+    }
+  } else {
+    hookState[hookIndex++] = [callback, deps];
+    return callback;
+  }
+}
 function reconceilChildren(vdom, parent) {
   for (let i = 0; i < vdom.length; i++) {
     vdom[i].mountIndex = i;
-    render(vdom[i], parent);
+    mount(vdom[i], parent);
   }
 }
 
@@ -64,12 +124,12 @@ function createDom(vdom) {
   }
   // update attributes
   updateProps(dom, {}, props);
-  if (props.children) {
+  if (props?.children) {
     if (Array.isArray(props.children)) {
       reconceilChildren(props.children, dom);
     } else if (typeof props.children === "object") {
       props.children.mountIndex = 0;
-      render(props.children, dom);
+      mount(props.children, dom);
     }
   }
   /* 将dom挂载到vdom */
@@ -182,6 +242,7 @@ export function findDom(vdom) {
 /* Diff */
 export function compareTwoDom(parentDom, oldVdom, newVdom, nextDom) {
   // debugger;
+
   if (!oldVdom && !newVdom) return;
   else if (oldVdom && !newVdom) {
     unMountVdom(oldVdom);
@@ -218,6 +279,7 @@ function updateElement(oldVdom, newVdom) {
   } else if (typeof oldVdom.type === "string") {
     let currentDom = (newVdom.dom = findDom(oldVdom));
     updateProps(currentDom, oldVdom.props, newVdom.props);
+
     updateChildren(currentDom, oldVdom.props.children, newVdom.props.children);
   } else if (typeof oldVdom.type === "function") {
     if (oldVdom.type.isReactComponent) {
@@ -235,18 +297,21 @@ function updateMemoComponent(oldVdom, newVdom) {
   } = oldVdom;
   compare = compare || shallowEqual;
   /* 不需要更新 */
+  // debugger;
+
+  // debugger;
   if (compare(prevProps, newVdom.props)) {
     newVdom.prevProps = prevProps;
     newVdom.oldRenderVdom = oldVdom.oldRenderVdom;
   } else {
     let oldDom = findDom(oldVdom);
-    let parentDom = oldDom.parentDom;
+    let parentDom = oldDom.parentNode;
     let {
       type: { type: MemoCpn },
       props,
     } = newVdom;
     let renderDom = MemoCpn(props);
-    compareTwoDom(parentDom, oldDom, newVdom);
+    compareTwoDom(parentDom, oldVdom, renderDom);
     newVdom.prevProps = props;
     newVdom.oldRenderVdom = renderDom;
   }
@@ -392,7 +457,8 @@ function unMountVdom(vdom) {
     classInstance.componentWillMount();
   }
   if (ref) ref.current = null;
-  if (props.children) {
+
+  if (props?.children) {
     let children = Array.isArray(props.children)
       ? props.children
       : [props.children];
@@ -407,7 +473,7 @@ function createPortal(vdom, container) {
   if (!container) container = document.createElement("div");
   document.body.appendChild(container);
   container.setAttribute("id", "dialog");
-  return render(vdom, container);
+  return mount(vdom, container);
 }
 //eslint-disable-next-line
 export default { render, createPortal };

@@ -1,6 +1,10 @@
 import React from "./cyanReact/react.js";
 import "./index.css";
-import ReactDom from "./cyanReact/react-dom";
+import ReactDom, {
+  useState,
+  useCallback,
+  useMemo,
+} from "./cyanReact/react-dom";
 const ColorContext = React.createContext();
 
 /* 实现React 类组件基本生命周期 
@@ -75,6 +79,7 @@ class TestProvider extends React.Component {
     );
   }
 }
+
 /* 实现forwardRef()转发函数式组件，使得支持获取函数式子组件的ref */
 // const ForwardRef = React.forwardRef(Fn);
 class ClassCpn extends React.Component {
@@ -156,6 +161,7 @@ class Portal extends React.PureComponent {
     );
   }
 }
+// eslint-disable-next-line
 const jsx = (
   <div className="border">
     <FunctionComponent name={"second function component"} />
@@ -175,5 +181,40 @@ const jsx = (
 /* 类组件：React.PureComponent -> 实现了shouldComponentUpdate -> shouUpdate中去调用类组件实例的shouldComponentUpdate方法判断，更新采取forceUpdate */
 /* 函数式组件：React.memo  */
 
+/* Hooks */
+function Child({ count, handleCount }) {
+  console.log("child render");
+  return (
+    <div>
+      {count?.count}
+      <button onClick={() => handleCount()}>+1</button>
+    </div>
+  );
+}
+const MemoChild = React.memo(Child);
+
+function Counter() {
+  const [count, setCount] = useState(0);
+  const [show, setShow] = useState(true);
+  const handleShow = () => {
+    setShow(!show);
+  };
+  const number = useMemo(
+    () => ({
+      count,
+    }),
+    [count]
+  );
+  const handleCount = useCallback(() => setCount(count + 1), [count]);
+
+  return (
+    <div>
+      {show ? <div>{count}</div> : null}
+      <button onClick={() => handleShow()}>show</button>
+      <button onClick={() => handleCount()}>+1</button>
+      <MemoChild count={number} handleCount={handleCount} />
+    </div>
+  );
+}
 //toDo 实现React.memo 和 React.PureComponent
-ReactDom.render(jsx, document.getElementById("root"));
+ReactDom.render(<Counter />, document.getElementById("root"));

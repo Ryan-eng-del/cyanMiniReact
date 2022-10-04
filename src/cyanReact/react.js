@@ -6,12 +6,11 @@ import {
   REACT_MEMO,
   REACT_PROVIDER,
 } from "./constants";
-import { compareTwoDom, findDom } from "./react-dom";
+import { compareTwoDom, findDom, useState } from "./react-dom";
 import { shallowEqual, toVom } from "./util";
 
 /* createElement jsx -> vdom*/
 function createElement(type, config, children) {
-  console.log(arguments, "arguements");
   let ref;
   let key;
   let props = { ...config };
@@ -210,6 +209,7 @@ function memo(type, compare = null) {
     type,
   };
 }
+
 const React = {
   createElement,
   Component,
@@ -219,5 +219,6 @@ const React = {
   createContext,
   PureComponent,
   memo,
+  useState,
 };
 export default React;

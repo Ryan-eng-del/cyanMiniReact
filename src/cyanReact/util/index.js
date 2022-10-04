@@ -70,7 +70,7 @@ export function shallowEqual(oldData, newData) {
   let keys2 = Object.keys(newData);
   if (keys1.length !== keys2.length) return false;
   for (const k of keys1) {
-    if (!newData.hasOwnProperty() || newData[k] !== oldData[k]) return false;
+    if (!newData.hasOwnProperty(k) || newData[k] !== oldData[k]) return false;
   }
   return true;
 }
