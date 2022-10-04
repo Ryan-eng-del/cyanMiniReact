@@ -25,9 +25,9 @@ function FunctionComponent({ name }) {
   );
 }
 
-function Fn(props, forwardRef) {
-  return <div ref={forwardRef}>Hello</div>;
-}
+// function Fn(props, forwardRef) {
+//   return <div ref={forwardRef}>Hello</div>;
+// }
 class Test extends React.Component {
   // eslint-disable-next-line
   constructor(props) {
@@ -61,9 +61,7 @@ class Test extends React.Component {
 }
 class TestProvider extends React.Component {
   static contextType = ColorContext;
-  constructor(props) {
-    super(props);
-  }
+
   handleChange = () => {
     console.log(this.context, "conetxt");
     this.context.changeColor();
@@ -150,13 +148,32 @@ class ClassCpn extends React.Component {
     );
   }
 }
-
+class Portal extends React.PureComponent {
+  render() {
+    return ReactDom.createPortal(
+      <div>Dialog</div>,
+      document.getElementById("dialog")
+    );
+  }
+}
 const jsx = (
   <div className="border">
-    {/* <FunctionComponent name={"second function component"} />
-    <div>Hello World</div> */}
+    <FunctionComponent name={"second function component"} />
+    <div>Hello World</div>
     <ClassCpn name={"class cpn"} />
+    <Portal />
   </div>
 );
 
+/* React属性代理 */
+/* 第一个是利用React高阶组件来封装一些固定功能和操作，第二个可以传递一个renderProps函数，这里可以使用装饰器来进行优化和简便 */
+
+/* React反向继承 */
+/* 拦截生命周期，拦截state，先让子类调用，在去父类调用，之后返回React.cloneElement() */
+
+/* React性能优化 */
+/* 类组件：React.PureComponent -> 实现了shouldComponentUpdate -> shouUpdate中去调用类组件实例的shouldComponentUpdate方法判断，更新采取forceUpdate */
+/* 函数式组件：React.memo  */
+
+//toDo 实现React.memo 和 React.PureComponent
 ReactDom.render(jsx, document.getElementById("root"));

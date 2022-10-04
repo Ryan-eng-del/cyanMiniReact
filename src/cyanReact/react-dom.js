@@ -16,14 +16,17 @@ import {
   REACT_CONTEXT,
   REACT_FORWARD_REF,
   REACT_FRAGMENT,
+  REACT_MEMO,
   REACT_PROVIDER,
   REACT_TEXT,
 } from "./constants";
 import { addEvent } from "./event";
+import { shallowEqual } from "./util";
 
 // vdom -> dom
 function render(vdom, container) {
   let newDom = createDom(vdom);
+  if (!newDom) return;
   container.appendChild(newDom);
   if (newDom.componentDidMount) newDom.componentDidMount();
 }
@@ -37,12 +40,16 @@ function reconceilChildren(vdom, parent) {
 
 /* vdom -> dom */
 function createDom(vdom) {
+  if (!vdom) return;
   const { type, props, ref } = vdom;
   let dom = null;
   if (type && type.$$typeof === REACT_FORWARD_REF) {
     return mountForwardComponent(vdom);
   } else if (type && type.$$typeof === REACT_PROVIDER) {
     return mountProviderComponent(vdom);
+  } else if (type && type.$$typeof === REACT_CONTEXT) {
+  } else if (type && type.$$typeof === REACT_MEMO) {
+    return mountMemoComponent(vdom);
   } else if (type && type.$$typeof === REACT_CONTEXT) {
     return mountContextComponent(vdom);
   } else if (type === REACT_FRAGMENT) {
@@ -70,6 +77,18 @@ function createDom(vdom) {
   /* 挂载ref */
   if (ref) ref.current = dom;
   return dom;
+}
+
+/* Memo组件 */
+function mountMemoComponent(vdom) {
+  const {
+    type: { type: MemoCpn },
+    props,
+  } = vdom;
+  vdom.prevProps = props;
+  const renderVdom = MemoCpn(props);
+  vdom.oldRenderVdom = renderVdom;
+  return createDom(renderVdom);
 }
 
 /* Forward组件 */
@@ -107,6 +126,7 @@ function mountFunctionComponent(vdom) {
   vdom.oldRenderVdom = renderVdom;
   return createDom(renderVdom);
 }
+
 /* Context Provider */
 function mountProviderComponent(vdom) {
   let { type, props } = vdom;
@@ -191,6 +211,9 @@ function updateElement(oldVdom, newVdom) {
   } else if (oldVdom.type.$$typeof === REACT_PROVIDER) {
     updateProviderComponent(oldVdom, newVdom);
   } else if (oldVdom.type.$$typeof === REACT_CONTEXT) {
+  } else if (oldVdom.type.$$typeof === REACT_MEMO) {
+    updateMemoComponent(oldVdom, newVdom);
+  } else if (oldVdom.type.$$typeof === REACT_CONTEXT) {
     updateContextConponent(oldVdom, newVdom);
   } else if (typeof oldVdom.type === "string") {
     let currentDom = (newVdom.dom = findDom(oldVdom));
@@ -202,6 +225,30 @@ function updateElement(oldVdom, newVdom) {
     } else {
       updateFunctionCpn(oldVdom, newVdom);
     }
+  }
+}
+/* 更新Memo组件 */
+function updateMemoComponent(oldVdom, newVdom) {
+  let {
+    type: { compare },
+    prevProps,
+  } = oldVdom;
+  compare = compare || shallowEqual;
+  /* 不需要更新 */
+  if (compare(prevProps, newVdom.props)) {
+    newVdom.prevProps = prevProps;
+    newVdom.oldRenderVdom = oldVdom.oldRenderVdom;
+  } else {
+    let oldDom = findDom(oldVdom);
+    let parentDom = oldDom.parentDom;
+    let {
+      type: { type: MemoCpn },
+      props,
+    } = newVdom;
+    let renderDom = MemoCpn(props);
+    compareTwoDom(parentDom, oldDom, newVdom);
+    newVdom.prevProps = props;
+    newVdom.oldRenderVdom = renderDom;
   }
 }
 
@@ -355,5 +402,12 @@ function unMountVdom(vdom) {
   /* 将该元素所在的Dom结构中删除 */
   if (currentDom) currentDom.remove();
 }
+
+function createPortal(vdom, container) {
+  if (!container) container = document.createElement("div");
+  document.body.appendChild(container);
+  container.setAttribute("id", "dialog");
+  return render(vdom, container);
+}
 //eslint-disable-next-line
-export default { render };
+export default { render, createPortal };

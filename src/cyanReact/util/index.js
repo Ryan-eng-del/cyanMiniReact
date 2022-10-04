@@ -48,9 +48,11 @@ export function updateNodeChildren(node, prevVal, nextVal) {
 export const isStringOrNumber = (val) => {
   return typeof val === "number" || typeof val === "string";
 };
+
 export const isFn = (type) => {
   return typeof type === "function";
 };
+
 export const sameNode = (a, b) => {
   console.log(a, b, "diff");
   return !!(a && b && a.key === b.key && a.type === b.type);
@@ -60,4 +62,15 @@ export function toVom(element) {
   return typeof element == "string" || typeof element == "number"
     ? { $$typeof: REACT_ELEMENT, type: REACT_TEXT, props: element }
     : element;
+}
+
+export function shallowEqual(oldData, newData) {
+  if (oldData === newData) return true;
+  let keys1 = Object.keys(oldData);
+  let keys2 = Object.keys(newData);
+  if (keys1.length !== keys2.length) return false;
+  for (const k of keys1) {
+    if (!newData.hasOwnProperty() || newData[k] !== oldData[k]) return false;
+  }
+  return true;
 }

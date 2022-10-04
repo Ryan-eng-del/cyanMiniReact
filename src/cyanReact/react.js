@@ -3,10 +3,11 @@ import {
   REACT_ELEMENT,
   REACT_FORWARD_REF,
   REACT_FRAGMENT,
+  REACT_MEMO,
   REACT_PROVIDER,
 } from "./constants";
 import { compareTwoDom, findDom } from "./react-dom";
-import { toVom } from "./util";
+import { shallowEqual, toVom } from "./util";
 
 /* createElement jsx -> vdom*/
 function createElement(type, config, children) {
@@ -191,6 +192,24 @@ function createContext() {
   };
   return context;
 }
+
+/* PureComponent */
+class PureComponent extends Component {
+  shouldComponentUpdate(nextProps, nextState) {
+    return (
+      !shallowEqual(this.props, nextProps) ||
+      !shallowEqual(this.state, nextState)
+    );
+  }
+}
+/* React.memo */
+function memo(type, compare = null) {
+  return {
+    $$typeof: REACT_MEMO,
+    compare,
+    type,
+  };
+}
 const React = {
   createElement,
   Component,
@@ -198,5 +217,7 @@ const React = {
   forwardRef,
   Fragment: REACT_FRAGMENT,
   createContext,
+  PureComponent,
+  memo,
 };
 export default React;
